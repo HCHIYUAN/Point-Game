@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>高爾夫球自動計分器 · 規則整合版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { color-scheme: light dark; }
+        html, body { font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, 'Noto Sans TC', Arial, sans-serif; }
+        .cell-input { width: 4.5rem; border-radius: 0.5rem; border: 1px solid #d1d5db; padding: 0.25rem; text-align: center; box-shadow: 0 1px 1px rgba(0,0,0,.02); outline: none; }
+        .cell-input:focus { outline: none; box-shadow: 0 0 0 2px rgba(16,185,129,.35); }
+        .cell-select { width: 6.5rem; border-radius: 0.5rem; border: 1px solid #d1d5db; padding: 0.25rem; text-align: center; font-size: .875rem; box-shadow: 0 1px 1px rgba(0,0,0,.02); }
+        .cell-select:focus { outline: none; box-shadow: 0 0 0 2px rgba(16,185,129,.35); }
+        .soft-card { background: #fff; border-radius: 1rem; box-shadow: 0 10px 30px rgba(0,0,0,.06); }
+    </style>
+</head>
+<body class="bg-gray-100 p-4">
+    <main class="container mx-auto max-w-5xl">
+        <header class="soft-card p-6 sticky top-4 z-10">
+            <h1 class="text-3xl font-bold text-center text-gray-800">高爾夫球計分器</h1>
+            <p id="gameDescription" class="mt-2 text-center text-gray-600">依你提供的點數模式規則（Par/Bogey/Birdie/Eagle/加罰/Golden Ball）自動計分。</p>
+
+            <section class="mt-6 grid gap-3 md:grid-cols-2">
+                <div class="flex items-center justify-center gap-4 bg-gray-50 p-2 rounded-xl">
+                    <label for="numPlayers" class="font-medium text-gray-700">球員人數</label>
+                    <select id="numPlayers" class="cell-select w-20">
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4" selected>4</option>
+                    </select>
+
+                    <label for="goldenBallHole" class="font-medium text-gray-700">Golden Ball</label>
+                    <select id="goldenBallHole" class="cell-select w-28"></select>
+                </div>
+
+                <div class="flex items-center justify-center gap-3 bg-gray-50 p-2 rounded-xl">
+                    <label for="courseSelect" class="font-medium text-gray-700">球場</label>
+                    <select id="courseSelect" class="cell-select w-44">
+                        <option value="guanyinshan" selected>觀音山球場</option>
+                        <option value="nanyi">南一球場</option>
+                        <option value="xinyi">信誼球場</option>
+                        <option value="dagangshan">大崗山球場</option>
+                        <option value="sinhwa">台南新化球場</option>
+                        <option value="jianan">嘉南球場</option>
+                        <option value="zhongluhe">棕梠湖球場</option>
+                    </select>
+                </div>
+            </section>
+
+            <section id="inOutDiv" class="mt-4 flex items-center justify-center gap-3 bg-gray-50 p-2 rounded-xl">
+                <div class="flex items-center gap-2">
+                    <label for="outNineSelect" class="font-medium text-gray-700">1–9洞</label>
+                    <select id="outNineSelect" class="cell-select w-24">
+                        <option value="out">OUT</option>
+                        <option value="in">IN</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-2">
+                    <label for="inNineSelect" class="font-medium text-gray-700">10–18洞</label>
+                    <select id="inNineSelect" class="cell-select w-24">
+                        <option value="in">IN</option>
+                        <option value="out">OUT</option>
+                    </select>
+                </div>
+            </section>
+
+            <section id="playerNames" class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <label class="flex flex-col text-sm">
+                    <span class="text-gray-700 mb-1">球員 1</span>
+                    <input id="player1Name" type="text" value="球員 A" class="cell-input">
+                </label>
+                <label class="flex flex-col text-sm">
+                    <span class="text-gray-700 mb-1">球員 2</span>
+                    <input id="player2Name" type="text" value="球員 B" class="cell-input">
+                </label>
+                <label class="flex flex-col text-sm">
+                    <span class="text-gray-700 mb-1">球員 3</span>
+                    <input id="player3Name" type="text" value="球員 C" class="cell-input">
+                </label>
+                <label class="flex flex-col text-sm">
+                    <span class="text-gray-700 mb-1">球員 4</span>
+                    <input id="player4Name" type="text" value="球員 D" class="cell-input">
+                </label>
+            </section>
+        </header>
+
+        <section class="soft-card mt-6 overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50 text-xs font-semibold uppercase text-gray-600">
+                    <tr>
+                        <th class="px-3 py-3 text-left w-20">洞號</th>
+                        <th id="parHeader" class="px-3 py-3 text-left w-20">標準桿</th>
+                        <th id="player-score-header-1" class="px-3 py-3 text-left">球員 A</th>
+                        <th id="player-score-header-2" class="px-3 py-3 text-left">球員 B</th>
+                        <th id="player-score-header-3" class="px-3 py-3 text-left">球員 C</th>
+                        <th id="player-score-header-4" class="px-3 py-3 text-left">球員 D</th>
+                        <th id="player-points-header-1" class="px-3 py-3 text-left">A 點數</th>
+                        <th id="player-points-header-2" class="px-3 py-3 text-left">B 點數</th>
+                        <th id="player-points-header-3" class="px-3 py-3 text-left">C 點數</th>
+                        <th id="player-points-header-4" class="px-3 py-3 text-left">D 點數</th>
+                    </tr>
+                </thead>
+                <tbody id="scoreTableBody" class="bg-white divide-y divide-gray-100"></tbody>
+            </table>
+        </section>
+
+        <section class="soft-card mt-6 overflow-x-auto">
+            <h2 class="text-2xl font-bold text-center text-gray-800 py-4">最終結果</h2>
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50 text-xs font-semibold uppercase text-gray-600">
+                    <tr>
+                        <th class="px-3 py-3 text-left">球員</th>
+                        <th class="px-3 py-3 text-left">總桿數</th>
+                        <th class="px-3 py-3 text-left">總點數</th>
+                        <th class="px-3 py-3 text-left">排名</th>
+                    </tr>
+                </thead>
+                <tbody id="totalTableBody" class="bg-white divide-y divide-gray-100"></tbody>
+            </table>
+        </section>
+    </main>
+
+    <script>
+    (function () {
+        const qs = (sel, el = document) => el.querySelector(sel);
+        const qsa = (sel, el = document) => Array.from(el.querySelectorAll(sel));
+        const clamp = (n, min, max) => Math.min(Math.max(n, min), max);
+        const toInt = (v) => (v === '' || v === null || Number.isNaN(Number(v)) ? null : parseInt(v, 10));
+        const debounce = (fn, wait = 120) => { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); }; };
+
+        const el = {
+            numPlayers: qs('#numPlayers'),
+            goldenBallHole: qs('#goldenBallHole'),
+            courseSelect: qs('#courseSelect'),
+            outNine: qs('#outNineSelect'),
+            inNine: qs('#inNineSelect'),
+            pointsModeSettings: qs('#pointsModeSettings'),
+            parHeader: qs('#parHeader'),
+            scoreBody: qs('#scoreTableBody'),
+            totalBody: qs('#totalTableBody'),
+            playerScoreHeaders: [1,2,3,4].map(i => qs(`#player-score-header-${i}`)),
+            playerPointHeaders: [1,2,3,4].map(i => qs(`#player-points-header-${i}`)),
+            playerNameInputs: [1,2,3,4].map(i => qs(`#player${i}Name`)),
+            gameModeRadios: qsa('input[name="gameMode"]'),
+            gameDesc: qs('#gameDescription'),
+        };
+
+        const COURSE_PAR = {
+            guanyinshan: { out: [5,4,4,5,4,4,4,3,3], in: [4,4,3,4,5,4,3,5,4] },
+            nanyi:       { out: [5,4,3,4,4,4,4,3,5], in: [4,5,4,3,4,3,4,5,4] },
+            xinyi:       { out: [4,4,3,5,4,3,4,5,4], in: [4,4,4,3,4,5,4,3,5] },
+            dagangshan:  { out: [4,5,3,4,5,4,4,3,4], in: [4,4,4,3,5,4,3,5,4] },
+            sinhwa:      { out: [5,4,3,4,3,5,4,4,4], in: [4,4,4,3,4,5,4,3,5] },
+            jianan:      { out: [4,5,4,4,3,4,4,3,5], in: [4,4,3,4,3,5,4,5,4] },
+            zhongluhe:   { out: [5,4,3,4,4,3,4,5,4], in: [4,4,4,5,3,4,4,3,5] },
+        };
+
+        const DEFAULTS = { numPlayers: 4, goldenBall: 18, course: 'guanyinshan', outNine: 'out', inNine: 'in', names: ['球員 A','球員 B','球員 C','球員 D'] };
+
+        const state = { ...DEFAULTS, names: [...DEFAULTS.names], par: [] };
+
+        const STORAGE_KEY = 'golf-scorecard-v2';
+        function loadState() { try { const raw = localStorage.getItem(STORAGE_KEY); if (!raw) return; const saved = JSON.parse(raw); Object.assign(state, saved, { names: saved.names || state.names }); } catch {} }
+        const saveState = debounce(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify({ numPlayers: state.numPlayers, goldenBall: state.goldenBall, course: state.course, outNine: state.outNine, inNine: state.inNine, names: state.names })); }, 300);
+
+        function resolveParAndHoleNos() {
+            const out = COURSE_PAR[state.course].out;
+            const inn = COURSE_PAR[state.course].in;
+            const par = [];
+            const holes = [];
+
+            const outNine = state.outNine;
+            const inNine = state.inNine;
+
+            // Determine par values and hole numbers for the first nine
+            if (outNine === 'out') {
+                par.push(...out);
+                holes.push(...[1,2,3,4,5,6,7,8,9]);
+            } else {
+                par.push(...inn);
+                holes.push(...[10,11,12,13,14,15,16,17,18]);
+            }
+
+            // Determine par values and hole numbers for the second nine
+            if (inNine === 'in') {
+                par.push(...inn);
+                holes.push(...[10,11,12,13,14,15,16,17,18]);
+            } else {
+                par.push(...out);
+                holes.push(...[1,2,3,4,5,6,7,8,9]);
+            }
+            
+            return { par, holes };
+        }
+
+        function updateHeaders() {
+            const numVisiblePlayers = state.numPlayers;
+            for (let i = 0; i < 4; i++) {
+                const name = state.names[i] || `球員 ${i+1}`;
+                el.playerScoreHeaders[i].textContent = name;
+                el.playerPointHeaders[i].textContent = `${name} 點數`;
+                const show = i < numVisiblePlayers;
+                el.playerScoreHeaders[i].classList.toggle('hidden', !show);
+                el.playerPointHeaders[i].classList.toggle('hidden', !show);
+                const wrap = el.playerNameInputs[i].closest('label');
+                wrap.classList.toggle('hidden', !show);
+            }
+        }
+
+        function renderGoldenBallOptions() { el.goldenBallHole.innerHTML = ''; for (let i = 1; i <= 18; i++) { const opt = document.createElement('option'); opt.value = String(i); opt.textContent = `第 ${i} 洞`; if (i === state.goldenBall) opt.selected = true; el.goldenBallHole.appendChild(opt); } }
+
+        function renderTable() {
+            el.scoreBody.innerHTML = '';
+            const { par, holes } = resolveParAndHoleNos();
+            state.par = par;
+            for (let r = 0; r < 18; r++) {
+                const holeNo = holes[r];
+                const parValue = par[r];
+                const isGolden = holeNo === state.goldenBall;
+                const tr = document.createElement('tr');
+                tr.dataset.hole = String(holeNo);
+
+                const holeCell = `<td class="px-3 py-2 whitespace-nowrap text-sm font-semibold ${isGolden ? 'text-yellow-600' : 'text-gray-900'}">${r+1} (${holeNo})${isGolden ? ' ⭐' : ''}</td>`;
+                const parCell = `<td class="px-3 py-2 text-sm text-gray-700"><input type="number" min="3" max="5" value="${parValue}" class="cell-input par-input" data-hole="${holeNo}"></td>`;
+                
+                let inputCells = '';
+                const maxPlayers = state.numPlayers;
+                for (let p = 1; p <= 4; p++) {
+                    const hidden = p > maxPlayers ? 'hidden' : '';
+                    inputCells += `<td class="px-3 py-2 text-sm ${hidden}"><input type="number" min="1" max="20" class="cell-input player-score" data-hole="${holeNo}" data-player="${p}"></td>`;
+                }
+                
+                let pointCells = '';
+                for (let p = 1; p <= 4; p++) {
+                    const hidden = p > maxPlayers ? 'hidden' : '';
+                    pointCells += `<td class="px-3 py-2 text-sm text-center ${hidden} ${isGolden ? 'bg-yellow-50' : ''}"><span id="points-h${holeNo}-p${p}" class="font-semibold text-gray-600">-</span></td>`;
+                }
+                
+                tr.innerHTML = holeCell + parCell + inputCells + pointCells;
+                el.scoreBody.appendChild(tr);
+            }
+        }
+
+        function renderTotals(rows) {
+            const sortedRows = [...rows].sort((a,b) => b.points - a.points || a.strokes - b.strokes);
+            el.totalBody.innerHTML = '';
+            sortedRows.forEach((r, i) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="px-3 py-2 text-sm text-gray-900">${r.name}</td>
+                    <td class="px-3 py-2 text-sm text-gray-700">${r.strokes}</td>
+                    <td class="px-3 py-2 text-sm ${r.points > 0 ? 'text-green-600' : r.points < 0 ? 'text-red-600' : 'text-gray-700'}">${r.points}</td>
+                    <td class="px-3 py-2 text-sm">${i+1}</td>
+                `;
+                el.totalBody.appendChild(tr);
+            });
+        }
+
+        // === 點數模式：依你提供的細則 ===
+        function calcPointsMode() {
+            const N = state.numPlayers;
+            const totals = Array(N).fill(0);
+            const strokes = Array(N).fill(0);
+            const { par, holes } = resolveParAndHoleNos();
+            
+            for (let r = 0; r < 18; r++) {
+                const holeNo = holes[r];
+                const parValue = par[r];
+                const scores = Array.from({length:N}, (_,i)=>{
+                    const input = qs(`.player-score[data-hole="${holeNo}"][data-player="${i+1}"]`);
+                    return toInt(input && input.value);
+                });
+                
+                let validScoresExist = false;
+                for (let i=0; i<N; i++) {
+                    if (scores[i] !== null) {
+                        strokes[i] += scores[i];
+                        validScoresExist = true;
+                    }
+                }
+
+                if (!validScoresExist) {
+                    for (let p = 0; p < N; p++) {
+                        const span = qs(`#points-h${holeNo}-p${p+1}`);
+                        if (span) span.textContent = '-';
+                    }
+                    continue;
+                }
+
+                const holePts = Array(N).fill(0);
+                const isGolden = holeNo === state.goldenBall;
+
+                for (let i = 0; i < N; i++) {
+                    if (scores[i] === null) continue;
+                    for (let j = i + 1; j < N; j++) {
+                        if (scores[j] === null) continue;
+
+                        let points = calcPairPointsByRules(scores[i], scores[j], parValue);
+                        
+                        // 規則 6: Golden Ball bonus
+                        if (isGolden) {
+                            if (scores[i] < scores[j]) {
+                                points += 1;
+                            } else if (scores[j] < scores[i]) {
+                                points -= 1;
+                            }
+                        }
+
+                        holePts[i] += points;
+                        holePts[j] -= points;
+                    }
+                }
+
+                for (let i=0; i<N; i++) {
+                    const span = qs(`#points-h${holeNo}-p${i+1}`);
+                    const val = holePts[i] || 0;
+                    if (span) {
+                        span.textContent = val;
+                        span.className = `font-semibold ${val>0?'text-green-600':val<0?'text-red-600':'text-gray-600'}`;
+                    }
+                    totals[i] += val;
+                }
+            }
+            
+            const rows = [...Array(N)].map((_,i)=>({ name: state.names[i], strokes: strokes[i], points: totals[i] }));
+            renderTotals(rows);
+        }
+        
+        function calcPairPointsByRules(a, b, par) {
+            if (a === null || b === null) return 0;
+            const aRel = a - par;
+            const bRel = b - par;
+        
+            let points = 0;
+            // 規則 1: 打 Par
+            if (aRel === 0 && bRel > 0) { points = 2; }
+            if (aRel > 0 && bRel === 0) { points = -2; }
+            // 規則 2: Bogey
+            if (aRel > 0 && bRel > 0) {
+                if (a < b) { points = 1; }
+                else if (b < a) { points = -1; }
+            }
+            
+            // 規則 4 & 5: Birdie/Eagle vs Par/Worse
+            if (aRel < 0 && bRel >= 0) {
+                if (aRel === -1) { points = (bRel === 0) ? 1 : 3; }
+                else if (aRel <= -2) { points = (bRel === 0) ? 3 : 5; }
+            }
+            if (bRel < 0 && aRel >= 0) {
+                if (bRel === -1) { points = -((aRel === 0) ? 1 : 3); }
+                else if (bRel <= -2) { points = -((aRel === 0) ? 3 : 5); }
+            }
+            
+            // 規則 4 & 5: 雙方都低於 Par
+            if (aRel < 0 && bRel < 0) {
+                if (a < b) { points = (aRel <= -2) ? 3 : 1; }
+                else if (b < a) { points = -((bRel <= -2) ? 3 : 1); }
+            }
+
+            // 規則 3: 雙倍標準桿罰則 (Par 4 & 5)
+            if ((par === 4 || par === 5) && a >= par * 2 && a > b) { points -= 1; }
+            if ((par === 4 || par === 5) && b >= par * 2 && b > a) { points += 1; }
+
+            return points;
+        }
+
+        function recalc() {
+            calcPointsMode();
+            saveState();
+        }
+        const recalcDebounced = debounce(recalc, 80);
+
+        function bindEvents() {
+            el.numPlayers.addEventListener('change', (e) => {
+                state.numPlayers = clamp(parseInt(e.target.value,10)||4, 2, 4);
+                updateHeaders();
+                renderTable();
+                recalc();
+            });
+
+            el.playerNameInputs.forEach((inp, idx) => inp.addEventListener('input', () => {
+                state.names[idx] = inp.value.trim() || `球員 ${idx+1}`;
+                updateHeaders();
+                recalcDebounced();
+            }));
+
+            [el.courseSelect, el.outNine, el.inNine].forEach(sel => sel.addEventListener('change', () => {
+                state.course = el.courseSelect.value;
+                state.outNine = el.outNine.value;
+                state.inNine = el.inNine.value;
+                renderTable();
+                recalc();
+            }));
+
+            el.goldenBallHole.addEventListener('change', (e) => {
+                state.goldenBall = clamp(parseInt(e.target.value,10)||18, 1, 18);
+                renderTable();
+                recalc();
+            });
+
+            el.scoreBody.addEventListener('input', (e) => {
+                const t = e.target;
+                if (t.matches('.player-score')) {
+                    const v = clamp(toInt(t.value), 1, 20);
+                    t.value = v;
+                    recalcDebounced();
+                } else if (t.matches('.par-input')) {
+                    const v = clamp(toInt(t.value), 3, 5);
+                    t.value = v;
+                    recalcDebounced();
+                }
+            });
+        }
+
+        function init() {
+            loadState();
+            el.numPlayers.value = String(state.numPlayers);
+            el.courseSelect.value = state.course;
+            el.outNine.value = state.outNine;
+            el.inNine.value = state.inNine;
+            el.playerNameInputs.forEach((inp,i)=> inp.value = state.names[i]);
+            renderGoldenBallOptions();
+            el.goldenBallHole.value = String(state.goldenBall);
+            updateHeaders();
+            renderTable();
+            bindEvents();
+            recalc();
+        }
+
+        init();
+    })();
+    </script>
+</body>
+</html>
